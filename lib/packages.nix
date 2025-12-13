@@ -44,7 +44,7 @@ rec {
       customPaths,
     }:
     let
-      overlaysPath = paths.overlays;
+      overlaysPath = customPaths.overlays;
       # Build a lib with the custom functions accessible
       libWithCustom = lib // {
         nix-lib = {
