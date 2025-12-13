@@ -17,12 +17,12 @@
       root,
       # Optional path overrides (relative to root)
       hostsDir ? "hosts",
-      homeDir ? "home",
+      usersDir ? "users",
       modulesDir ? "modules",
       overlaysDir ? "overlays",
       pkgsDir ? "pkgs",
       hostFeaturesDir ? "hosts/features",
-      homeFeaturesDir ? "home/features",
+      usersFeaturesDir ? "users/features",
     }:
     let
       # Build path helpers bound to the consumer's root
@@ -37,20 +37,20 @@
       configuredPaths = {
         inherit
           hostsDir
-          homeDir
+          usersDir
           modulesDir
           overlaysDir
           pkgsDir
           hostFeaturesDir
-          homeFeaturesDir
+          usersFeaturesDir
           ;
         hosts = pathFromRoot hostsDir;
-        home = pathFromRoot homeDir;
+        users = pathFromRoot usersDir;
         modules = pathFromRoot modulesDir;
         overlays = pathFromRoot overlaysDir;
         pkgs = pathFromRoot pkgsDir;
         hostFeatures = pathFromRoot hostFeaturesDir;
-        homeFeatures = pathFromRoot homeFeaturesDir;
+        usersFeatures = pathFromRoot usersFeaturesDir;
       };
 
       # Build the component libs

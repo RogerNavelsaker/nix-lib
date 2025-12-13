@@ -140,7 +140,7 @@ rec {
                           programs.home-manager.enable = true;
                         }
                       ]
-                      ++ modules.importIfExists (pathFromRoot "${paths.homeDir}/${user}/${hostname}.nix");
+                      ++ modules.importIfExists (pathFromRoot "${paths.usersDir}/${user}/${hostname}.nix");
                     };
                   }) users
                 );
@@ -242,7 +242,7 @@ rec {
       extraModules ? [ ],
     }:
     let
-      userConfigDir = pathFromRoot "${paths.homeDir}/${username}";
+      userConfigDir = pathFromRoot "${paths.usersDir}/${username}";
       userConfigFile = userConfigDir + "/default.nix";
       userModules = if builtins.pathExists userConfigFile then [ userConfigFile ] else [ ];
       featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
@@ -362,7 +362,7 @@ rec {
       overlays ? [ ],
     }:
     let
-      featuresBasePath = paths.homeFeatures;
+      featuresBasePath = paths.usersFeatures;
       featureSet = featuresLib.processFeatures features (
         featuresLib.mkFeatureSetFromDirs featuresBasePath
       );
