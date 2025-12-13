@@ -15,9 +15,9 @@
 let
   featuresLib = features;
 
-  # Build the nix-config attrset that gets passed to all modules via specialArgs
+  # Build the nix-lib attrset that gets passed to all modules via specialArgs
   # This provides access to all custom lib functions in modules
-  mkNixConfigAttr = {
+  mkNixLibAttr = {
     # Module utilities (flattened for convenience)
     inherit (modules) scanModules importModules importIfExists;
 
@@ -49,8 +49,8 @@ rec {
     in
     {
       inputs = inputsWithoutSelf;
-      # Pass nix-config to all modules
-      nix-config = mkNixConfigAttr;
+      # Pass nix-lib to all modules
+      nix-lib = mkNixLibAttr;
     }
     // extraSpecialArgs;
 
@@ -78,8 +78,8 @@ rec {
     in
     {
       inputs = inputsWithoutSelf;
-      # Pass nix-config to all modules
-      nix-config = mkNixConfigAttr;
+      # Pass nix-lib to all modules
+      nix-lib = mkNixLibAttr;
     }
     // (if secrets != null then { inherit secrets; } else { })
     // extraSpecialArgs;
@@ -117,8 +117,8 @@ rec {
                 verbose = true;
                 extraSpecialArgs = {
                   inputs = builtins.removeAttrs inputs [ "self" ];
-                  # Pass nix-config to integrated Home Manager modules
-                  nix-config = mkNixConfigAttr;
+                  # Pass nix-lib to integrated Home Manager modules
+                  nix-lib = mkNixLibAttr;
                 };
                 users = builtins.listToAttrs (
                   map (user: {
