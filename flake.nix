@@ -4,7 +4,7 @@
 
   inputs = {
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.*.tar.gz";
-    systems.url = "https://flakehub.com/f/nix-systems/default-linux/0.1.*.tar.gz";
+    systems.url = "github:nix-systems/default-linux";
   };
 
   outputs =
