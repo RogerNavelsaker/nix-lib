@@ -71,6 +71,17 @@ When `secrets` path provided:
 1. Consumer's `overlays/default.nix` exports
 2. Custom overlays passed to builder
 
+### 6. User Config Loading
+
+`mkHomeModules` imports user configs in order:
+1. `users/{username}/default.nix` - Shared user config (if exists)
+2. `users/{username}/{hostname}.nix` - Host-specific config (if exists)
+
+This enables:
+- NixOS + integrated HM: uses `users/{user}/{hostname}.nix` via NixOS module
+- NixOS + standalone HM: same pattern via `mkHome`
+- Non-NixOS + standalone HM: same pattern (e.g., Arch Linux with home-manager)
+
 ## Design Decisions
 
 | Decision | Rationale |
