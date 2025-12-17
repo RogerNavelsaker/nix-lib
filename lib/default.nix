@@ -102,7 +102,13 @@
         hasFeature
         withFeature
         ;
-      inherit (modules) forEachSystem pkgsFor scanModules importModules importIfExists;
+      inherit (modules)
+        forEachSystem
+        pkgsFor
+        scanModules
+        importModules
+        importIfExists
+        ;
     };
 
   # Re-export component libs for advanced usage

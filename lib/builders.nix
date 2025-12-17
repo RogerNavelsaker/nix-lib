@@ -243,8 +243,13 @@ rec {
     }:
     let
       userConfigDir = pathFromRoot "${paths.usersDir}/${username}";
-      userConfigFile = userConfigDir + "/default.nix";
-      userModules = if builtins.pathExists userConfigFile then [ userConfigFile ] else [ ];
+      # Import default.nix if exists (shared user config)
+      userDefaultFile = userConfigDir + "/default.nix";
+      userDefaultModules = if builtins.pathExists userDefaultFile then [ userDefaultFile ] else [ ];
+      # Import {hostname}.nix if exists (host-specific user config)
+      userHostFile = userConfigDir + "/${hostname}.nix";
+      userHostModules = modules.importIfExists userHostFile;
+      userModules = userDefaultModules ++ userHostModules;
       featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
 
       # Auto-configure user SSH key from secrets
