@@ -99,9 +99,19 @@ rec {
       standaloneHM ? true,
     }:
     let
+      # Host config: check both patterns
+      # 1. hosts/{hostname}/default.nix (directory)
+      # 2. hosts/{hostname}.nix (file)
       hostConfigDir = pathFromRoot "${paths.hostsDir}/${hostname}";
-      hostConfigFile = hostConfigDir + "/default.nix";
-      hostModules = if builtins.pathExists hostConfigFile then [ hostConfigFile ] else [ ];
+      hostConfigDirFile = hostConfigDir + "/default.nix";
+      hostConfigFile = pathFromRoot "${paths.hostsDir}/${hostname}.nix";
+      hostModules =
+        if builtins.pathExists hostConfigDirFile then
+          [ hostConfigDirFile ]
+        else if builtins.pathExists hostConfigFile then
+          [ hostConfigFile ]
+        else
+          [ ];
       featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
 
       # Home Manager as NixOS module (integrated mode)
@@ -243,13 +253,21 @@ rec {
     }:
     let
       userConfigDir = pathFromRoot "${paths.usersDir}/${username}";
-      # Import default.nix if exists (shared user config)
-      userDefaultFile = userConfigDir + "/default.nix";
-      userDefaultModules = if builtins.pathExists userDefaultFile then [ userDefaultFile ] else [ ];
-      # Import {hostname}.nix if exists (host-specific user config)
+
+      # Host-specific config: check both patterns
+      # 1. users/{username}/{hostname}.nix (file)
+      # 2. users/{username}/{hostname}/default.nix (directory)
       userHostFile = userConfigDir + "/${hostname}.nix";
-      userHostModules = modules.importIfExists userHostFile;
-      userModules = userDefaultModules ++ userHostModules;
+      userHostDirFile = userConfigDir + "/${hostname}/default.nix";
+      userHostModules =
+        if builtins.pathExists userHostDirFile then
+          [ userHostDirFile ]
+        else if builtins.pathExists userHostFile then
+          [ userHostFile ]
+        else
+          [ ];
+
+      userModules = userHostModules;
       featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
 
       # Auto-configure user SSH key from secrets
@@ -410,6 +428,36 @@ rec {
 
   # Batch create multiple homes
   mkHomes = homeSpecs: lib.mapAttrs (_: mkHome) homeSpecs;
+
+  # Create home-manager switch apps from homeConfigurations
+  # Usage: apps = lib.mkHomeApps { inherit self; default = "rona@aio"; };
+  mkHomeApps =
+    {
+      self,
+      homeConfigurations ? self.homeConfigurations,
+      default ? null,
+    }:
+    let
+      # Create app for a single home configuration
+      mkHomeSwitch = name: {
+        type = "app";
+        program = "${homeConfigurations.${name}.activationPackage}/activate";
+      };
+
+      # Generate apps for all home configurations
+      homeApps = lib.mapAttrs' (name: _: {
+        name = "home-switch-${lib.replaceStrings [ "@" ] [ "-" ] name}";
+        value = mkHomeSwitch name;
+      }) homeConfigurations;
+
+      # Add default app if specified
+      defaultApp =
+        if default != null && homeConfigurations ? ${default} then
+          { home-switch = mkHomeSwitch default; }
+        else
+          { };
+    in
+    homeApps // defaultApp;
 
   # Utility to check if feature is enabled
   hasFeature = feature: enabledFeatures: lib.elem feature enabledFeatures;

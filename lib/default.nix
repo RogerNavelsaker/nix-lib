@@ -99,6 +99,7 @@
         mkHome
         mkSystems
         mkHomes
+        mkHomeApps
         hasFeature
         withFeature
         ;
