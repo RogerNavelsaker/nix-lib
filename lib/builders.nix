@@ -97,6 +97,7 @@ rec {
       overlays,
       extraModules ? [ ],
       standaloneHM ? true,
+      userFeatures ? { }, # For integrated HM mode
     }:
     let
       # Host config: check both patterns
@@ -115,6 +116,14 @@ rec {
       featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
 
       # Home Manager as NixOS module (integrated mode)
+      # Resolve user features for integrated mode with opt-in/opt-out support
+      userFeaturesBasePath = paths.usersFeatures;
+      userFeatureSet = featuresLib.processFeatures userFeatures (
+        featuresLib.mkFeatureSetFromDirs userFeaturesBasePath
+      );
+      userEnabledFeatures = userFeatureSet.enabled;
+      userFeatureModules = featuresLib.resolveFeatureModules userFeaturesBasePath userEnabledFeatures;
+
       homeManagerModule =
         if !standaloneHM then
           [
@@ -140,7 +149,7 @@ rec {
                           userSpec = {
                             username = user;
                             inherit hostname stateVersion;
-                            enabledFeatures = [ ];
+                            enabledFeatures = userEnabledFeatures;
                           };
                           home = {
                             username = user;
@@ -150,6 +159,9 @@ rec {
                           programs.home-manager.enable = true;
                         }
                       ]
+                      # User features (default + opt-out)
+                      ++ userFeatureModules
+                      # User-specific host config
                       ++ modules.importIfExists (pathFromRoot "${paths.usersDir}/${user}/${hostname}.nix");
                     };
                   }) users
@@ -331,6 +343,7 @@ rec {
       domain ? null,
       secrets ? null,
       features ? { },
+      userFeatures ? { }, # For integrated HM mode: user feature opt-in/opt-out
       extraModules ? [ ],
       extraSpecialArgs ? { },
       overlays ? [ ],
@@ -361,6 +374,7 @@ rec {
           extraModules
           standaloneHM
           featuresBasePath
+          userFeatures
           ;
         enabledFeatures = featureSet.enabled;
         overlays = allOverlays;
