@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Cli__Git_-_Status",
+      "mcp__Cli__Git_-_Diff",
+      "mcp__Cli__Git_-_Log",
+      "mcp__Cli__Git_-_Add",
+      "mcp__Cli__Git_-_Commit",
+      "mcp__Cli__Filesystem_-_Move",
+      "mcp__Memory__list_memory_projects",
+      "mcp__Memory__read_note",
+      "mcp__Cli__Filesystem_-_Exists",
+      "mcp__Cli__Filesystem_-_List__eza_",
+      "mcp__Cli__File_-_Write",
+      "mcp__Memory__create_memory_project",
+      "mcp__Memory__search_notes",
+      "mcp__Memory__delete_note",
+      "mcp__Memory__list_directory",
+      "mcp__Memory__write_note",
+      "mcp__Memory__edit_note"
+    ]
+  }
+}
