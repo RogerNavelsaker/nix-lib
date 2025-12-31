@@ -46,12 +46,14 @@ rec {
     basePath:
     let
       defaultFeatures = getFeatureNames (basePath + "/default");
+      optOutFeatures = getFeatureNames (basePath + "/opt-out");
     in
     {
       default = defaultFeatures;
       opt-in = getFeatureNames (basePath + "/opt-in");
-      opt-out = getFeatureNames (basePath + "/opt-out");
-      enabled = defaultFeatures;
+      opt-out = optOutFeatures;
+      # Both default and opt-out features are enabled by default
+      enabled = defaultFeatures ++ optOutFeatures;
     };
 
   # Check if feature matches pattern (implicit wildcard)
