@@ -72,6 +72,7 @@
           lib
           inputs
           features
+          impermanence
           modules
           packages
           overlays

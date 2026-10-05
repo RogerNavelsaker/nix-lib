@@ -6,6 +6,7 @@
   lib,
   inputs,
   features,
+  impermanence,
   modules,
   packages,
   overlays,
@@ -21,11 +22,8 @@ let
     # Module utilities (flattened for convenience)
     inherit (modules) scanModules importModules importIfExists;
 
-    # Feature system
-    inherit features;
-
-    # Impermanence helpers - will be added when impermanence is passed
-    # inherit impermanence;
+    # Feature system and impermanence helpers
+    inherit features impermanence;
 
     # Package utilities (flattened for convenience)
     inherit (packages) buildPackageSet discoverPackages;
