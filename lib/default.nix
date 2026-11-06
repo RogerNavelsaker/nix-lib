@@ -18,11 +18,15 @@
       # Optional path overrides (relative to root)
       hostsDir ? "hosts",
       usersDir ? "users",
+      vesselsDir ? "vessels",
+      clankersDir ? "clankers",
       modulesDir ? "modules",
       overlaysDir ? "overlays",
       pkgsDir ? "pkgs",
       hostFeaturesDir ? "hosts/features",
       usersFeaturesDir ? "users/features",
+      vesselFeaturesDir ? hostFeaturesDir,
+      clankerFeaturesDir ? usersFeaturesDir,
     }:
     let
       # Build path helpers bound to the consumer's root
@@ -38,19 +42,27 @@
         inherit
           hostsDir
           usersDir
+          vesselsDir
+          clankersDir
           modulesDir
           overlaysDir
           pkgsDir
           hostFeaturesDir
           usersFeaturesDir
+          vesselFeaturesDir
+          clankerFeaturesDir
           ;
         hosts = pathFromRoot hostsDir;
         users = pathFromRoot usersDir;
+        vessels = pathFromRoot vesselsDir;
+        clankers = pathFromRoot clankersDir;
         modules = pathFromRoot modulesDir;
         overlays = pathFromRoot overlaysDir;
         pkgs = pathFromRoot pkgsDir;
         hostFeatures = pathFromRoot hostFeaturesDir;
         usersFeatures = pathFromRoot usersFeaturesDir;
+        vesselFeatures = pathFromRoot vesselFeaturesDir;
+        clankerFeatures = pathFromRoot clankerFeaturesDir;
       };
 
       # Build the component libs
@@ -100,6 +112,10 @@
         mkHome
         mkSystems
         mkHomes
+        mkVessel
+        mkVessels
+        mkClanker
+        mkClankers
         mkHomeApps
         hasFeature
         withFeature

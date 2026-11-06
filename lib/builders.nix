@@ -86,11 +86,14 @@ rec {
   mkSystemModules =
     {
       hostname,
+      resourceName ? hostname,
       users,
       stateVersion,
       domain ? null,
       secrets ? null,
       featuresBasePath,
+      resourceDir ? paths.hosts,
+      systemInputs ? inputs,
       enabledFeatures,
       overlays,
       extraModules ? [ ],
@@ -101,9 +104,9 @@ rec {
       # Host config: check both patterns
       # 1. hosts/{hostname}/default.nix (directory)
       # 2. hosts/{hostname}.nix (file)
-      hostConfigDir = pathFromRoot "${paths.hostsDir}/${hostname}";
+      hostConfigDir = resourceDir + "/${resourceName}";
       hostConfigDirFile = hostConfigDir + "/default.nix";
-      hostConfigFile = pathFromRoot "${paths.hostsDir}/${hostname}.nix";
+      hostConfigFile = resourceDir + "/${resourceName}.nix";
       hostModules =
         if builtins.pathExists hostConfigDirFile then
           [ hostConfigDirFile ]
@@ -125,7 +128,7 @@ rec {
       homeManagerModule =
         if !standaloneHM then
           [
-            inputs.home-manager.nixosModules.home-manager
+            systemInputs.home-manager.nixosModules.home-manager
             (_: {
               home-manager = {
                 useGlobalPkgs = true;
@@ -133,7 +136,7 @@ rec {
                 backupFileExtension = "backup";
                 verbose = true;
                 extraSpecialArgs = {
-                  inputs = builtins.removeAttrs inputs [ "self" ];
+                  inputs = builtins.removeAttrs systemInputs [ "self" ];
                   # Pass nix-lib to integrated Home Manager modules
                   nix-lib = mkNixLibAttr;
                 };
@@ -171,7 +174,7 @@ rec {
           [ ];
 
       # Auto-configure user passwords from secrets
-      sopsModule = if secrets != null then [ inputs.sops-nix.nixosModules.sops ] else [ ];
+      sopsModule = if secrets != null then [ systemInputs.sops-nix.nixosModules.sops ] else [ ];
 
       userPasswordModule =
         if secrets != null && users != [ ] then
@@ -257,18 +260,23 @@ rec {
       stateVersion,
       secrets ? null,
       featuresBasePath,
+      resourceDir ? paths.users,
+      resourceName ? username,
+      homeInputs ? inputs,
       enabledFeatures,
       overlays,
       extraModules ? [ ],
     }:
     let
-      userConfigDir = pathFromRoot "${paths.usersDir}/${username}";
+      userConfigDir = resourceDir + "/${resourceName}";
 
       # Host-specific config: check both patterns
       # 1. users/{username}/{hostname}.nix (file)
       # 2. users/{username}/{hostname}/default.nix (directory)
       userHostFile = userConfigDir + "/${hostname}.nix";
       userHostDirFile = userConfigDir + "/${hostname}/default.nix";
+      resourceConfigFile = userConfigDir + "/default.nix";
+      resourceModules = lib.optional (builtins.pathExists resourceConfigFile) resourceConfigFile;
       userHostModules =
         if builtins.pathExists userHostDirFile then
           [ userHostDirFile ]
@@ -277,11 +285,11 @@ rec {
         else
           [ ];
 
-      userModules = userHostModules;
+      userModules = resourceModules ++ userHostModules;
       featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
 
       # Auto-configure user SSH key from secrets
-      sopsModule = if secrets != null then [ inputs.sops-nix.homeManagerModules.sops ] else [ ];
+      sopsModule = if secrets != null then [ homeInputs.sops-nix.homeManagerModules.sops ] else [ ];
 
       sshKeyModule =
         if secrets != null then
@@ -335,6 +343,7 @@ rec {
   mkSystem =
     {
       hostname,
+      resourceName ? hostname,
       users ? [ ],
       system ? "x86_64-linux",
       stateVersion ? "25.05",
@@ -346,25 +355,30 @@ rec {
       extraSpecialArgs ? { },
       overlays ? [ ],
       standaloneHM ? true,
+      resourceDir ? paths.hosts,
+      featuresBasePath ? paths.hostFeatures,
+      inputOverrides ? { },
     }:
     let
-      featuresBasePath = paths.hostFeatures;
+      systemInputs = inputs // inputOverrides;
       featureSet = featuresLib.processFeatures features (
         featuresLib.mkFeatureSetFromDirs featuresBasePath
       );
 
       allOverlays = packages.combineOverlays {
-        inherit inputs;
+        inputs = systemInputs;
         custom = overlays;
       };
 
       specialArgs = mkSystemSpecialArgs {
-        inherit inputs secrets extraSpecialArgs;
+        inputs = systemInputs;
+        inherit secrets extraSpecialArgs;
       };
 
       systemModules = mkSystemModules {
         inherit
           hostname
+          resourceName
           users
           stateVersion
           domain
@@ -372,13 +386,15 @@ rec {
           extraModules
           standaloneHM
           featuresBasePath
+          resourceDir
+          systemInputs
           userFeatures
           ;
         enabledFeatures = featureSet.enabled;
         overlays = allOverlays;
       };
     in
-    lib.nixosSystem {
+    systemInputs.nixpkgs.lib.nixosSystem {
       inherit system specialArgs;
       modules = systemModules;
     };
@@ -395,25 +411,31 @@ rec {
       extraModules ? [ ],
       extraSpecialArgs ? { },
       overlays ? [ ],
+      resourceDir ? paths.users,
+      resourceName ? username,
+      featuresBasePath ? paths.usersFeatures,
+      inputOverrides ? { },
     }:
     let
-      featuresBasePath = paths.usersFeatures;
+      homeInputs = inputs // inputOverrides;
       featureSet = featuresLib.processFeatures features (
         featuresLib.mkFeatureSetFromDirs featuresBasePath
       );
 
       allOverlays = packages.combineOverlays {
-        inherit inputs;
+        inputs = homeInputs;
         custom = overlays;
       };
       pkgs = packages.mkPkgs {
-        inherit system inputs;
+        inherit system;
+        inputs = homeInputs;
         overlays = allOverlays;
         extendedLib = lib;
       };
 
       homeExtraSpecialArgs = mkHomeExtraSpecialArgs {
-        inherit inputs secrets extraSpecialArgs;
+        inputs = homeInputs;
+        inherit secrets extraSpecialArgs;
       };
 
       homeModules = mkHomeModules {
@@ -424,16 +446,109 @@ rec {
           secrets
           extraModules
           featuresBasePath
+          resourceDir
+          resourceName
           ;
+        homeInputs = homeInputs;
         enabledFeatures = featureSet.enabled;
         overlays = allOverlays;
       };
     in
-    inputs.home-manager.lib.homeManagerConfiguration {
+    homeInputs.home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       extraSpecialArgs = homeExtraSpecialArgs;
       modules = homeModules;
     };
+
+  # Resource-level input selections override mkLib defaults for one configuration.
+  resourceInputOverrides =
+    spec:
+    (spec.inputOverrides or { })
+    // lib.optionalAttrs (spec ? nixpkgs) { inherit (spec) nixpkgs; }
+    // lib.optionalAttrs (spec ? home-manager) {
+      home-manager = spec.home-manager;
+    };
+
+  # Resource roots reuse the existing builders and feature resolver.
+  mkVessel =
+    spec:
+    let
+      name = spec.resourceName or spec.hostname;
+    in
+    mkSystem (
+      builtins.removeAttrs spec [
+        "nixpkgs"
+        "home-manager"
+        "inputOverrides"
+      ]
+      // {
+        resourceName = name;
+        resourceDir = paths.vessels;
+        featuresBasePath = paths.vesselFeatures;
+        inputOverrides = resourceInputOverrides spec;
+      }
+    );
+
+  discoverResources =
+    resourceDir:
+    lib.filterAttrs (
+      name: type:
+      type == "directory"
+      && name != "features"
+      && builtins.pathExists (resourceDir + "/${name}/default.nix")
+    ) (if builtins.pathExists resourceDir then builtins.readDir resourceDir else { });
+
+  mkVessels =
+    defaults:
+    lib.mapAttrs (
+      name: _:
+      mkVessel (
+        defaults
+        // {
+          hostname = name;
+          resourceName = name;
+          users = [ name ];
+        }
+      )
+    ) (discoverResources paths.vessels);
+
+  mkClanker =
+    spec:
+    let
+      name = spec.resourceName or spec.username;
+    in
+    mkHome (
+      builtins.removeAttrs spec [
+        "nixpkgs"
+        "home-manager"
+        "inputOverrides"
+      ]
+      // {
+        resourceDir = paths.clankers;
+        resourceName = name;
+        featuresBasePath = paths.clankerFeatures;
+        inputOverrides = resourceInputOverrides spec;
+      }
+    );
+
+  mkClankers =
+    defaults:
+    lib.mapAttrs' (
+      name: _:
+      let
+        hostname = "agent-${name}";
+      in
+      lib.nameValuePair "${name}@${hostname}" (
+        mkClanker (
+          defaults
+          // {
+            username = name;
+            inherit hostname;
+            resourceName = name;
+          }
+        )
+      )
+    ) (discoverResources paths.clankers);
 
   # Batch create multiple systems
   mkSystems = systemSpecs: lib.mapAttrs (_: mkSystem) systemSpecs;

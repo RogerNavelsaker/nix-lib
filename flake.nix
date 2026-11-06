@@ -43,6 +43,31 @@
             opt-in = [ "ephemeral-root" ];
             opt-out = [ "legacy-swap" ];
           } featureSet;
+          vesselModules = nixLib.builders.mkSystemModules {
+            hostname = "agent-example";
+            resourceName = "features";
+            users = [ ];
+            stateVersion = "25.11";
+            resourceDir = ./lib;
+            featuresBasePath = ./lib;
+            enabledFeatures = [ ];
+            overlays = [ ];
+          };
+          clankerModules = nixLib.builders.mkHomeModules {
+            username = "agent";
+            hostname = "agent-example";
+            resourceName = ".";
+            stateVersion = "25.11";
+            resourceDir = ./lib;
+            featuresBasePath = ./lib;
+            enabledFeatures = [ ];
+            overlays = [ ];
+          };
+          resourceInputOverrides = nixLib.builders.resourceInputOverrides {
+            nixpkgs = "stable-nixpkgs";
+            home-manager = "stable-home-manager";
+          };
+          defaultResourceInputOverrides = nixLib.builders.resourceInputOverrides { };
           moduleArgs = nixLib.builders.mkSystemSpecialArgs { inputs = { }; };
           persistedDirectory =
             moduleArgs.nix-lib.impermanence.mkPersistDir "/var/lib/example" "svc" "svc"
@@ -61,6 +86,18 @@
             "impermanence"
             "ephemeral-root"
           ];
+        assert
+          resourceInputOverrides == {
+            nixpkgs = "stable-nixpkgs";
+            home-manager = "stable-home-manager";
+          };
+        assert defaultResourceInputOverrides == { };
+        assert builtins.isFunction nixLib.mkVessel;
+        assert builtins.isFunction nixLib.mkVessels;
+        assert builtins.isFunction nixLib.mkClanker;
+        assert builtins.isFunction nixLib.mkClankers;
+        assert builtins.elem ./lib/features.nix vesselModules;
+        assert builtins.elem ./lib/default.nix clankerModules;
         assert
           persistedDirectory == {
             directory = "/var/lib/example";
