@@ -98,12 +98,14 @@
           ];
         assert
           maraResourceSpec == {
+            hostname = "agent-mara";
             nixpkgs = "mara-nixpkgs";
             home-manager = "mara-home-manager";
             inputOverrides = {
               toolchain = "mara-toolchain";
             };
           };
+        assert maraResourceSpec.hostname == "agent-mara";
         assert
           maraResourceInputOverrides == {
             nixpkgs = "mara-nixpkgs";

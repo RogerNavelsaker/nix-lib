@@ -532,7 +532,7 @@ rec {
         defaults
         // resource
         // {
-          hostname = name;
+          hostname = resource.hostname or name;
           resourceName = name;
           users = resource.users or [ name ];
         }
