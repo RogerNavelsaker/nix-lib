@@ -63,10 +63,20 @@
             enabledFeatures = [ ];
             overlays = [ ];
           };
+          maraResourceSpec = nixLib.builders.resourceSpec {
+            resourceDir = ./tests/fixtures/resources;
+            name = "mara";
+            inputs = {
+              maraNixpkgs = "mara-nixpkgs";
+              maraHomeManager = "mara-home-manager";
+              maraToolchain = "mara-toolchain";
+            };
+          };
           resourceInputOverrides = nixLib.builders.resourceInputOverrides {
             nixpkgs = "stable-nixpkgs";
             home-manager = "stable-home-manager";
           };
+          maraResourceInputOverrides = nixLib.builders.resourceInputOverrides maraResourceSpec;
           defaultResourceInputOverrides = nixLib.builders.resourceInputOverrides { };
           moduleArgs = nixLib.builders.mkSystemSpecialArgs { inputs = { }; };
           persistedDirectory =
@@ -86,6 +96,20 @@
             "impermanence"
             "ephemeral-root"
           ];
+        assert
+          maraResourceSpec == {
+            nixpkgs = "mara-nixpkgs";
+            home-manager = "mara-home-manager";
+            inputOverrides = {
+              toolchain = "mara-toolchain";
+            };
+          };
+        assert
+          maraResourceInputOverrides == {
+            nixpkgs = "mara-nixpkgs";
+            home-manager = "mara-home-manager";
+            toolchain = "mara-toolchain";
+          };
         assert
           resourceInputOverrides == {
             nixpkgs = "stable-nixpkgs";

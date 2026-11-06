@@ -469,6 +469,26 @@ rec {
       home-manager = spec.home-manager;
     };
 
+  # Optional resource-local settings provide input/channel selections without a global registry.
+  resourceSpec =
+    {
+      resourceDir,
+      name,
+      inputs ? { },
+    }:
+    let
+      resourceConfigFile = resourceDir + "/${name}/resource.nix";
+      importedSpec = if builtins.pathExists resourceConfigFile then import resourceConfigFile else { };
+      spec =
+        if builtins.isFunction importedSpec then
+          importedSpec { inherit inputs name resourceDir; }
+        else
+          importedSpec;
+    in
+    if builtins.isAttrs spec then
+      spec
+    else
+      throw "Resource settings in ${toString resourceConfigFile} must return an attribute set";
   # Resource roots reuse the existing builders and feature resolver.
   mkVessel =
     spec:
@@ -502,12 +522,19 @@ rec {
     defaults:
     lib.mapAttrs (
       name: _:
+      let
+        resource = resourceSpec {
+          resourceDir = paths.vessels;
+          inherit name inputs;
+        };
+      in
       mkVessel (
         defaults
+        // resource
         // {
           hostname = name;
           resourceName = name;
-          users = [ name ];
+          users = resource.users or [ name ];
         }
       )
     ) (discoverResources paths.vessels);
@@ -537,10 +564,15 @@ rec {
       name: _:
       let
         hostname = "agent-${name}";
+        resource = resourceSpec {
+          resourceDir = paths.clankers;
+          inherit name inputs;
+        };
       in
       lib.nameValuePair "${name}@${hostname}" (
         mkClanker (
           defaults
+          // resource
           // {
             username = name;
             inherit hostname;
@@ -549,7 +581,6 @@ rec {
         )
       )
     ) (discoverResources paths.clankers);
-
   # Batch create multiple systems
   mkSystems = systemSpecs: lib.mapAttrs (_: mkSystem) systemSpecs;
 
