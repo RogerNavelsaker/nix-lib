@@ -79,6 +79,13 @@
           maraResourceInputOverrides = nixLib.builders.resourceInputOverrides maraResourceSpec;
           defaultResourceInputOverrides = nixLib.builders.resourceInputOverrides { };
           moduleArgs = nixLib.builders.mkSystemSpecialArgs { inputs = { }; };
+          extendedPkgs = nixLib.packages.mkPkgs {
+            inherit system;
+            inputs = { inherit nixpkgs; };
+            extendedLib = {
+              customNixLibValue = "available";
+            };
+          };
           persistedDirectory =
             moduleArgs.nix-lib.impermanence.mkPersistDir "/var/lib/example" "svc" "svc"
               "0700";
@@ -106,6 +113,8 @@
             };
           };
         assert maraResourceSpec.hostname == "agent-mara";
+        assert extendedPkgs.lib.licenses.mit == nixpkgs.lib.licenses.mit;
+        assert extendedPkgs.lib.customNixLibValue == "available";
         assert
           maraResourceInputOverrides == {
             nixpkgs = "mara-nixpkgs";

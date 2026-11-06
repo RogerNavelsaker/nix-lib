@@ -97,12 +97,12 @@ rec {
       extendedLib ? null,
     }:
     let
-      # If extendedLib is provided, add an overlay to replace pkgs.lib with it
+      # Merge nix-lib-only helpers without replacing the selected nixpkgs lib.
       libOverlay =
         if extendedLib != null then
           [
             (_final: _prev: {
-              lib = extendedLib;
+              lib = _prev.lib // builtins.removeAttrs extendedLib (builtins.attrNames _prev.lib);
             })
           ]
         else
