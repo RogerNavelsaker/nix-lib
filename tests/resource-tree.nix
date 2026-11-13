@@ -38,7 +38,7 @@ let
   };
   host = hosts.sample-host;
   vessel = vessels.sample-vessel;
-  clanker = clankers.sample-clanker;
+  clanker = clankers."sample-clanker@agent-sample-clanker";
   user =
     (nixLib.mkUsers {
       "sample-user@sample-host" = {
@@ -58,7 +58,7 @@ let
 in
 assert builtins.attrNames hosts == [ "sample-host" ];
 assert builtins.attrNames vessels == [ "sample-vessel" ];
-assert builtins.attrNames clankers == [ "sample-clanker" ];
+assert builtins.attrNames clankers == [ "sample-clanker@agent-sample-clanker" ];
 assert builtins.elem (root + "/hosts/sample-host/default.nix") host.modules;
 assert builtins.elem (root + "/hosts/sample-host/features/default/core.nix") host.modules;
 assert builtins.any (

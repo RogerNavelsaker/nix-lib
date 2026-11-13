@@ -626,14 +626,25 @@ rec {
 
   mkClankers =
     args:
-    mkDiscoveredResources {
-      root = paths.clankers;
-      builder = mkClanker;
-      defaults = args.defaults or { };
-      specs = args.specs or { };
-      resources = args.resources or null;
-      exclude = args.exclude or [ ];
-    };
+    let
+      clankers = mkDiscoveredResources {
+        root = paths.clankers;
+        builder = mkClanker;
+        defaults = args.defaults or { };
+        specs = args.specs or { };
+        resources = args.resources or null;
+        exclude = args.exclude or [ ];
+      };
+    in
+    lib.mapAttrs' (
+      name: clanker:
+      let
+        spec = (args.defaults or { }) // (args.specs.${name} or { });
+        username = spec.username or name;
+        hostname = spec.hostname or "agent-${name}";
+      in
+      lib.nameValuePair "${username}@${hostname}" clanker
+    ) clankers;
 
   # User outputs are explicit because each home maps a human account to a hostname.
   mkUsers = homeSpecs: lib.mapAttrs (_: mkUser) homeSpecs;
