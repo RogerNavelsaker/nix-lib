@@ -42,20 +42,27 @@ rec {
   getFeatureNames = featuresDir: getFeatureNamesRecursive featuresDir "";
 
   # Build feature set from directory structure
+  # Build feature set from one resource-local root plus any shared roots.
   mkFeatureSetFromDirs =
-    basePath:
+    basePaths:
     let
-      defaultFeatures = getFeatureNames (basePath + "/default");
-      optOutFeatures = getFeatureNames (basePath + "/opt-out");
+      roots = if builtins.isList basePaths then basePaths else [ basePaths ];
+      collect = basePath: {
+        default = getFeatureNames (basePath + "/default");
+        opt-in = getFeatureNames (basePath + "/opt-in");
+        opt-out = getFeatureNames (basePath + "/opt-out");
+      };
+      featureSets = map collect roots;
+      defaultFeatures = lib.unique (lib.concatMap (set: set.default) featureSets);
+      optInFeatures = lib.unique (lib.concatMap (set: set.opt-in) featureSets);
+      optOutFeatures = lib.unique (lib.concatMap (set: set.opt-out) featureSets);
     in
     {
       default = defaultFeatures;
-      opt-in = getFeatureNames (basePath + "/opt-in");
+      opt-in = optInFeatures;
       opt-out = optOutFeatures;
-      # Both default and opt-out features are enabled by default
-      enabled = defaultFeatures ++ optOutFeatures;
+      enabled = lib.unique (defaultFeatures ++ optOutFeatures);
     };
-
   # Check if feature matches pattern (implicit wildcard)
   matchesPattern = pattern: feature: pattern == feature || lib.hasPrefix (pattern + "/") feature;
 
@@ -106,23 +113,23 @@ rec {
 
   # Resolve feature path by checking default/opt-in/opt-out directories
   resolveFeaturePath =
-    basePath: feature:
+    basePaths: feature:
     let
-      tryPaths = [
+      roots = if builtins.isList basePaths then basePaths else [ basePaths ];
+      candidates = lib.concatMap (basePath: [
         (basePath + "/default/${feature}.nix")
         (basePath + "/default/${feature}/default.nix")
         (basePath + "/opt-in/${feature}.nix")
         (basePath + "/opt-in/${feature}/default.nix")
         (basePath + "/opt-out/${feature}.nix")
         (basePath + "/opt-out/${feature}/default.nix")
-      ];
-      validPaths = lib.filter builtins.pathExists tryPaths;
+      ]) roots;
+      validPaths = lib.filter builtins.pathExists candidates;
     in
     if validPaths == [ ] then
-      throw "Feature '${feature}' not found in ${toString basePath}"
+      throw "Feature '${feature}' not found in ${lib.concatMapStringsSep ", " toString roots}"
     else
       builtins.head validPaths;
-
   # Resolve multiple feature modules
   resolveFeatureModules = basePath: features: map (f: resolveFeaturePath basePath f) features;
 }

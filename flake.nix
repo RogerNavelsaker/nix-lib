@@ -50,7 +50,9 @@
           persistedFile =
             moduleArgs.nix-lib.impermanence.mkPersistFile "/etc/example.conf" "root" "root"
               "0640";
+          resourceTreeTest = import ./tests/resource-tree.nix { inherit nixpkgs; };
         in
+        assert resourceTreeTest;
         assert
           defaultFeatures.enabled == [
             "impermanence"
@@ -61,6 +63,15 @@
             "impermanence"
             "ephemeral-root"
           ];
+
+        assert builtins.isFunction nixLib.mkVessel;
+        assert builtins.isFunction nixLib.mkVessels;
+        assert builtins.isFunction nixLib.mkClanker;
+        assert builtins.isFunction nixLib.mkClankers;
+        assert builtins.isFunction nixLib.mkHost;
+        assert builtins.isFunction nixLib.mkHosts;
+        assert builtins.isFunction nixLib.mkUser;
+        assert builtins.isFunction nixLib.mkUsers;
         assert
           persistedDirectory == {
             directory = "/var/lib/example";
@@ -78,6 +89,9 @@
             };
           };
         {
+          resource-tree = pkgs.runCommand "nix-lib-resource-tree-test" { } ''
+            touch "$out"
+          '';
           impermanence-features = pkgs.runCommand "nix-lib-impermanence-features-test" { } ''
             touch "$out"
           '';

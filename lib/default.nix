@@ -18,6 +18,8 @@
       # Optional path overrides (relative to root)
       hostsDir ? "hosts",
       usersDir ? "users",
+      vesselsDir ? "vessels",
+      clankersDir ? "clankers",
       modulesDir ? "modules",
       overlaysDir ? "overlays",
       pkgsDir ? "pkgs",
@@ -38,6 +40,8 @@
         inherit
           hostsDir
           usersDir
+          vesselsDir
+          clankersDir
           modulesDir
           overlaysDir
           pkgsDir
@@ -46,6 +50,8 @@
           ;
         hosts = pathFromRoot hostsDir;
         users = pathFromRoot usersDir;
+        vessels = pathFromRoot vesselsDir;
+        clankers = pathFromRoot clankersDir;
         modules = pathFromRoot modulesDir;
         overlays = pathFromRoot overlaysDir;
         pkgs = pathFromRoot pkgsDir;
@@ -98,6 +104,14 @@
       inherit (builders)
         mkSystem
         mkHome
+        mkHost
+        mkHosts
+        mkVessel
+        mkVessels
+        mkClanker
+        mkClankers
+        mkUser
+        mkUsers
         mkSystems
         mkHomes
         mkHomeApps

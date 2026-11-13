@@ -36,6 +36,31 @@ let
   };
 in
 rec {
+  discoverResourceDirs =
+    root:
+    if builtins.pathExists root then
+      lib.filterAttrs (
+        name: kind: kind == "directory" && builtins.pathExists (root + "/${name}/default.nix")
+      ) (builtins.readDir root)
+    else
+      { };
+
+  mkDiscoveredResources =
+    {
+      root,
+      builder,
+      defaults ? { },
+      specs ? { },
+      resources ? null,
+      exclude ? [ ],
+    }:
+    let
+      discovered = builtins.attrNames (discoverResourceDirs root);
+      names = builtins.filter (name: !(builtins.elem name exclude)) (
+        if resources == null then discovered else resources
+      );
+    in
+    lib.genAttrs names (name: builder (defaults // (specs.${name} or { }) // { resourceName = name; }));
   # Build base specialArgs common to both NixOS and Home Manager
   mkBaseSpecialArgs =
     {
@@ -90,20 +115,23 @@ rec {
       stateVersion,
       domain ? null,
       secrets ? null,
-      featuresBasePath,
+      featuresBasePaths,
+      resourceDir ? paths.hosts,
+      resourceName ? hostname,
       enabledFeatures,
       overlays,
       extraModules ? [ ],
       standaloneHM ? true,
-      userFeatures ? { }, # For integrated HM mode
+      userFeatures ? { },
+      userFeaturesBasePaths ? [ paths.usersFeatures ], # For integrated HM mode
     }:
     let
       # Host config: check both patterns
       # 1. hosts/{hostname}/default.nix (directory)
       # 2. hosts/{hostname}.nix (file)
-      hostConfigDir = pathFromRoot "${paths.hostsDir}/${hostname}";
+      hostConfigDir = resourceDir + "/${resourceName}";
       hostConfigDirFile = hostConfigDir + "/default.nix";
-      hostConfigFile = pathFromRoot "${paths.hostsDir}/${hostname}.nix";
+      hostConfigFile = resourceDir + "/${resourceName}.nix";
       hostModules =
         if builtins.pathExists hostConfigDirFile then
           [ hostConfigDirFile ]
@@ -111,16 +139,15 @@ rec {
           [ hostConfigFile ]
         else
           [ ];
-      featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
+      featureModules = featuresLib.resolveFeatureModules featuresBasePaths enabledFeatures;
 
       # Home Manager as NixOS module (integrated mode)
       # Resolve user features for integrated mode with opt-in/opt-out support
-      userFeaturesBasePath = paths.usersFeatures;
       userFeatureSet = featuresLib.processFeatures userFeatures (
-        featuresLib.mkFeatureSetFromDirs userFeaturesBasePath
+        featuresLib.mkFeatureSetFromDirs userFeaturesBasePaths
       );
       userEnabledFeatures = userFeatureSet.enabled;
-      userFeatureModules = featuresLib.resolveFeatureModules userFeaturesBasePath userEnabledFeatures;
+      userFeatureModules = featuresLib.resolveFeatureModules userFeaturesBasePaths userEnabledFeatures;
 
       homeManagerModule =
         if !standaloneHM then
@@ -232,8 +259,8 @@ rec {
       }
       # Set traditional options from hostSpec
       {
-        networking.hostName = hostname;
-        system.stateVersion = stateVersion;
+        networking.hostName = lib.mkDefault hostname;
+        system.stateVersion = lib.mkDefault stateVersion;
       }
       {
         nixpkgs.overlays = overlays;
@@ -256,13 +283,15 @@ rec {
       hostname,
       stateVersion,
       secrets ? null,
-      featuresBasePath,
+      featuresBasePaths,
+      resourceDir ? paths.users,
+      resourceName ? username,
       enabledFeatures,
       overlays,
       extraModules ? [ ],
     }:
     let
-      userConfigDir = pathFromRoot "${paths.usersDir}/${username}";
+      userConfigDir = resourceDir + "/${resourceName}";
 
       # Host-specific config: check both patterns
       # 1. users/{username}/{hostname}.nix (file)
@@ -277,8 +306,10 @@ rec {
         else
           [ ];
 
-      userModules = userHostModules;
-      featureModules = featuresLib.resolveFeatureModules featuresBasePath enabledFeatures;
+      userModules =
+        lib.optional (builtins.pathExists (userConfigDir + "/default.nix")) (userConfigDir + "/default.nix")
+        ++ userHostModules;
+      featureModules = featuresLib.resolveFeatureModules featuresBasePaths enabledFeatures;
 
       # Auto-configure user SSH key from secrets
       sopsModule = if secrets != null then [ inputs.sops-nix.homeManagerModules.sops ] else [ ];
@@ -335,6 +366,10 @@ rec {
   mkSystem =
     {
       hostname,
+      resourceDir ? paths.hosts,
+      resourceName ? hostname,
+      featuresBasePaths ? [ paths.hostFeatures ],
+      userFeaturesBasePaths ? [ paths.usersFeatures ],
       users ? [ ],
       system ? "x86_64-linux",
       stateVersion ? "25.05",
@@ -348,9 +383,8 @@ rec {
       standaloneHM ? true,
     }:
     let
-      featuresBasePath = paths.hostFeatures;
       featureSet = featuresLib.processFeatures features (
-        featuresLib.mkFeatureSetFromDirs featuresBasePath
+        featuresLib.mkFeatureSetFromDirs featuresBasePaths
       );
 
       allOverlays = packages.combineOverlays {
@@ -365,14 +399,17 @@ rec {
       systemModules = mkSystemModules {
         inherit
           hostname
+          resourceDir
+          resourceName
           users
           stateVersion
           domain
           secrets
           extraModules
           standaloneHM
-          featuresBasePath
+          featuresBasePaths
           userFeatures
+          userFeaturesBasePaths
           ;
         enabledFeatures = featureSet.enabled;
         overlays = allOverlays;
@@ -387,6 +424,9 @@ rec {
   mkHome =
     {
       username,
+      resourceDir ? paths.users,
+      resourceName ? username,
+      featuresBasePaths ? [ paths.usersFeatures ],
       hostname,
       system ? "x86_64-linux",
       stateVersion ? "25.05",
@@ -397,9 +437,8 @@ rec {
       overlays ? [ ],
     }:
     let
-      featuresBasePath = paths.usersFeatures;
       featureSet = featuresLib.processFeatures features (
-        featuresLib.mkFeatureSetFromDirs featuresBasePath
+        featuresLib.mkFeatureSetFromDirs featuresBasePaths
       );
 
       allOverlays = packages.combineOverlays {
@@ -419,11 +458,13 @@ rec {
       homeModules = mkHomeModules {
         inherit
           username
+          resourceDir
+          resourceName
           hostname
           stateVersion
           secrets
           extraModules
-          featuresBasePath
+          featuresBasePaths
           ;
         enabledFeatures = featureSet.enabled;
         overlays = allOverlays;
@@ -434,6 +475,120 @@ rec {
       extraSpecialArgs = homeExtraSpecialArgs;
       modules = homeModules;
     };
+  # Resource-tree wrappers. Resource IDs are discovered from directories containing default.nix.
+  mkHost =
+    spec:
+    let
+      resourceName =
+        spec.resourceName or (spec.hostname or (throw "mkHost requires resourceName or hostname"));
+      hostFeatures =
+        spec.featuresBasePaths or [
+          (paths.hosts + "/${resourceName}/features")
+          paths.hostFeatures
+        ];
+    in
+    mkSystem (
+      builtins.removeAttrs spec [ "name" ]
+      // {
+        inherit resourceName;
+        hostname = spec.hostname or resourceName;
+        resourceDir = paths.hosts;
+        featuresBasePaths = hostFeatures;
+      }
+    );
+
+  mkVessel =
+    spec:
+    let
+      resourceName = spec.resourceName or (spec.name or (throw "mkVessel requires resourceName or name"));
+      vesselFeatures = spec.featuresBasePaths or [ (paths.vessels + "/${resourceName}/features") ];
+    in
+    mkSystem (
+      builtins.removeAttrs spec [ "name" ]
+      // {
+        inherit resourceName;
+        hostname = spec.hostname or "agent-${resourceName}";
+        resourceDir = paths.vessels;
+        featuresBasePaths = vesselFeatures;
+      }
+    );
+
+  mkClanker =
+    spec:
+    let
+      resourceName =
+        spec.resourceName
+          or (spec.name or (spec.username or (throw "mkClanker requires resourceName, name, or username")));
+      clankerFeatures = spec.featuresBasePaths or [ (paths.clankers + "/${resourceName}/features") ];
+    in
+    mkHome (
+      builtins.removeAttrs spec [ "name" ]
+      // {
+        username = spec.username or resourceName;
+        hostname = spec.hostname or "agent-${resourceName}";
+        inherit resourceName;
+        resourceDir = paths.clankers;
+        featuresBasePaths = clankerFeatures;
+      }
+    );
+
+  mkUser =
+    spec:
+    let
+      username =
+        spec.username
+          or (spec.resourceName or (spec.name or (throw "mkUser requires username, resourceName, or name")));
+      resourceName = spec.resourceName or username;
+      userFeatures =
+        spec.featuresBasePaths or [
+          (paths.users + "/${resourceName}/features")
+          paths.usersFeatures
+        ];
+    in
+    mkHome (
+      builtins.removeAttrs spec [ "name" ]
+      // {
+        inherit username resourceName;
+        resourceDir = paths.users;
+        featuresBasePaths = userFeatures;
+      }
+    );
+
+  mkHosts =
+    args:
+    mkDiscoveredResources {
+      root = paths.hosts;
+      builder = mkHost;
+      defaults = args.defaults or { };
+      specs = args.specs or { };
+      resources = args.resources or null;
+      exclude = args.exclude or [ ];
+    };
+
+  mkVessels =
+    args:
+    mkDiscoveredResources {
+      root = paths.vessels;
+      builder = mkVessel;
+      defaults = args.defaults or { };
+      specs = args.specs or { };
+      resources = args.resources or null;
+      exclude = args.exclude or [ ];
+    };
+
+  mkClankers =
+    args:
+    mkDiscoveredResources {
+      root = paths.clankers;
+      builder = mkClanker;
+      defaults = args.defaults or { };
+      specs = args.specs or { };
+      resources = args.resources or null;
+      exclude = args.exclude or [ ];
+    };
+
+  # User outputs are explicit because each home maps a human account to a hostname.
+  mkUsers = homeSpecs: lib.mapAttrs (_: mkUser) homeSpecs;
 
   # Batch create multiple systems
   mkSystems = systemSpecs: lib.mapAttrs (_: mkSystem) systemSpecs;
