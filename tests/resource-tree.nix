@@ -7,6 +7,12 @@ let
   homeManager = {
     lib.homeManagerConfiguration = args: args;
   };
+  selectedNixpkgs = name: {
+    lib.nixosSystem = args: args // { selectedInput = name; };
+  };
+  selectedHomeManager = name: {
+    lib.homeManagerConfiguration = args: args // { selectedInput = name; };
+  };
   nixLib = (import ../lib { inherit lib; }).mkLib {
     inputs = {
       nixpkgs = nixpkgs.outPath;
@@ -21,9 +27,15 @@ let
     hostFeaturesDir = "hosts/features";
     usersFeaturesDir = "users/features";
   };
-  hosts = nixLib.mkHosts { };
-  vessels = nixLib.mkVessels { };
-  clankers = nixLib.mkClankers { };
+  hosts = nixLib.mkHosts {
+    specs.sample-host.nixpkgs = selectedNixpkgs "host";
+  };
+  vessels = nixLib.mkVessels {
+    specs.sample-vessel.nixpkgs = selectedNixpkgs "vessel";
+  };
+  clankers = nixLib.mkClankers {
+    specs.sample-clanker.home-manager = selectedHomeManager "clanker";
+  };
   host = hosts.sample-host;
   vessel = vessels.sample-vessel;
   clanker = clankers.sample-clanker;
@@ -32,6 +44,7 @@ let
       "sample-user@sample-host" = {
         username = "sample-user";
         hostname = "sample-host";
+        inputOverrides.home-manager = selectedHomeManager "user";
       };
     })."sample-user@sample-host";
   featureSet = nixLib.features.mkFeatureSetFromDirs [
@@ -59,6 +72,10 @@ assert builtins.any (
 assert builtins.elem (root + "/clankers/sample-clanker/default.nix") clanker.modules;
 assert builtins.elem (root + "/clankers/sample-clanker/features/default/core.nix") clanker.modules;
 assert builtins.elem (root + "/users/sample-user/default.nix") user.modules;
+assert host.selectedInput == "host";
+assert vessel.selectedInput == "vessel";
+assert clanker.selectedInput == "clanker";
+assert user.selectedInput == "user";
 assert featureSet.default == [ "shared" ];
 assert featureSet.opt-in == [ "extra" ];
 assert featureSet.opt-out == [ "legacy" ];
