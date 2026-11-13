@@ -66,11 +66,16 @@ assert builtins.any (
 ) host.modules;
 assert builtins.elem (root + "/vessels/sample-vessel/default.nix") vessel.modules;
 assert builtins.elem (root + "/vessels/sample-vessel/features/default/core.nix") vessel.modules;
+assert builtins.elem (root + "/hosts/features/default/shared-host.nix") vessel.modules;
 assert builtins.any (
   module: builtins.isAttrs module && (module.hostSpec.hostname or null) == "agent-sample-vessel"
 ) vessel.modules;
+assert builtins.any (
+  module: builtins.isAttrs module && (module.hostSpec.users or [ ]) == [ "sample-vessel" ]
+) vessel.modules;
 assert builtins.elem (root + "/clankers/sample-clanker/default.nix") clanker.modules;
 assert builtins.elem (root + "/clankers/sample-clanker/features/default/core.nix") clanker.modules;
+assert builtins.elem (root + "/users/features/default/shared-user.nix") clanker.modules;
 assert builtins.elem (root + "/users/sample-user/default.nix") user.modules;
 assert host.selectedInput == "host";
 assert vessel.selectedInput == "vessel";

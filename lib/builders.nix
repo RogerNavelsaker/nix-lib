@@ -525,7 +525,11 @@ rec {
     spec:
     let
       resourceName = spec.resourceName or (spec.name or (throw "mkVessel requires resourceName or name"));
-      vesselFeatures = spec.featuresBasePaths or [ (paths.vessels + "/${resourceName}/features") ];
+      vesselFeatures =
+        spec.featuresBasePaths or [
+          (paths.vessels + "/${resourceName}/features")
+          paths.hostFeatures
+        ];
     in
     mkSystem (
       builtins.removeAttrs spec [
@@ -542,6 +546,7 @@ rec {
         hostname = spec.hostname or "agent-${resourceName}";
         resourceDir = paths.vessels;
         featuresBasePaths = vesselFeatures;
+        users = spec.users or [ resourceName ];
       }
     );
 
@@ -551,7 +556,11 @@ rec {
       resourceName =
         spec.resourceName
           or (spec.name or (spec.username or (throw "mkClanker requires resourceName, name, or username")));
-      clankerFeatures = spec.featuresBasePaths or [ (paths.clankers + "/${resourceName}/features") ];
+      clankerFeatures =
+        spec.featuresBasePaths or [
+          (paths.clankers + "/${resourceName}/features")
+          paths.usersFeatures
+        ];
     in
     mkHome (
       builtins.removeAttrs spec [
